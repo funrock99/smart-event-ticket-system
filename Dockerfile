@@ -8,6 +8,7 @@ RUN npm run build
 FROM maven:3.9.11-eclipse-temurin-17 AS backend-build
 WORKDIR /workspace
 COPY pom.xml ./
+COPY frontend frontend
 COPY src src
 COPY --from=frontend-build /frontend/dist/ src/main/resources/static/
 RUN mvn -q clean package -DskipTests
