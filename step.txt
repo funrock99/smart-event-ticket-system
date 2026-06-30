@@ -1,0 +1,44 @@
+每次開機後，你可以用這個順序啟動：
+
+  Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+  2. 確認 Docker engine 已經起來
+
+  docker info
+
+  3. 進入專案目錄
+
+  cd "E:\Smart Maintenance Ticket System"
+
+  4. 啟動專案容器
+
+  docker compose up --build
+
+  如果你想背景執行：
+
+  docker compose up --build -d
+
+  docker compose ps
+
+  6. 測試 API
+
+  curl http://localhost:8080/api/equipments
+
+  Swagger：
+
+  http://localhost:8080/swagger-ui/index.html
+
+  常用停止指令：
+
+  docker compose down
+
+  常用查看 log：
+
+  docker compose logs -f
+
+  最實用的日常流程其實就是這 4 個：
+
+  docker info
+  cd "E:\Smart Maintenance Ticket System"
+  docker compose up --build -d
+  docker compose ps

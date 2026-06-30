@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: smart-maintenance-ticket-system
+  datasource:
+    url: jdbc:h2:mem:smart_maintenance;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    defer-datasource-initialization: true
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: always
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui/index.html
+
+app:
+  redis:
+    dashboard-summary-ttl: 10m
+    equipment-status-ttl: 30m
+    recent-alarm-ttl: 30m
+    alarm-dedup-ttl: 2m
+    recent-alarm-limit: 20
