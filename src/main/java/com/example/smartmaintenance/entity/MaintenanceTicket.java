@@ -1,5 +1,6 @@
 package com.example.smartmaintenance.entity;
 
+import com.example.smartmaintenance.enums.EventType;
 import com.example.smartmaintenance.enums.TicketPriority;
 import com.example.smartmaintenance.enums.TicketStatus;
 import jakarta.persistence.Column;
@@ -24,11 +25,15 @@ public class MaintenanceTicket {
     @Column(nullable = false, unique = true, length = 30)
     private String ticketNo;
 
-    @Column(nullable = false, length = 30)
-    private String equipmentId;
-
     @Column(nullable = false, length = 50)
-    private String alarmCode;
+    private String source;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private EventType eventType;
+
+    @Column(nullable = false, length = 100)
+    private String businessKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -74,20 +79,28 @@ public class MaintenanceTicket {
         this.ticketNo = ticketNo;
     }
 
-    public String getEquipmentId() {
-        return equipmentId;
+    public String getSource() {
+        return source;
     }
 
-    public void setEquipmentId(String equipmentId) {
-        this.equipmentId = equipmentId;
+    public void setSource(String source) {
+        this.source = source;
     }
 
-    public String getAlarmCode() {
-        return alarmCode;
+    public EventType getEventType() {
+        return eventType;
     }
 
-    public void setAlarmCode(String alarmCode) {
-        this.alarmCode = alarmCode;
+    public void setEventType(EventType eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getBusinessKey() {
+        return businessKey;
+    }
+
+    public void setBusinessKey(String businessKey) {
+        this.businessKey = businessKey;
     }
 
     public TicketPriority getPriority() {
@@ -146,4 +159,3 @@ public class MaintenanceTicket {
         this.closedAt = closedAt;
     }
 }
-

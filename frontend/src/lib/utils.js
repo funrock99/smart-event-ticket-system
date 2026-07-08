@@ -1,11 +1,12 @@
 export const summaryDefinitions = [
-    ["totalEquipments", "設備總數"],
-    ["runningEquipments", "運轉中"],
-    ["downEquipments", "異常停機"],
-    ["maintenanceEquipments", "維修中"],
-    ["openTickets", "未結工單"],
-    ["inProgressTickets", "處理中工單"],
-    ["highSeverityAlarms", "高嚴重度異常"]
+    ["totalEvents", "總事件數"],
+    ["validEvents", "有效事件"],
+    ["duplicatedEvents", "重複事件"],
+    ["rateLimitedEvents", "限流事件"],
+    ["openTickets", "OPEN 工單"],
+    ["processingTickets", "PROCESSING 工單"],
+    ["resolvedTickets", "RESOLVED 工單"],
+    ["closedTickets", "CLOSED 工單"]
 ];
 
 export function normalizeErrorMessage(error) {
@@ -40,8 +41,8 @@ export function stringifyResult(title, payload) {
 export function getAllowedNextStatuses(currentStatus) {
     switch (currentStatus) {
         case "OPEN":
-            return ["IN_PROGRESS"];
-        case "IN_PROGRESS":
+            return ["PROCESSING"];
+        case "PROCESSING":
             return ["RESOLVED"];
         case "RESOLVED":
             return ["CLOSED"];

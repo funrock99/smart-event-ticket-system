@@ -22,9 +22,6 @@ class TicketServiceTest {
     private MaintenanceTicketRepository ticketRepository;
 
     @Mock
-    private EquipmentService equipmentService;
-
-    @Mock
     private CacheService cacheService;
 
     @InjectMocks
@@ -33,17 +30,14 @@ class TicketServiceTest {
     @Test
     void updateStatusShouldRejectInvalidTransition() {
         MaintenanceTicket ticket = new MaintenanceTicket();
-        ticket.setTicketNo("MT-20260628-0001");
+        ticket.setId(1L);
         ticket.setStatus(TicketStatus.OPEN);
 
-        when(ticketRepository.findByTicketNo("MT-20260628-0001")).thenReturn(Optional.of(ticket));
+        when(ticketRepository.findById(1L)).thenReturn(Optional.of(ticket));
 
         assertThrows(
                 InvalidStatusTransitionException.class,
-                () -> ticketService.updateStatus(
-                        "MT-20260628-0001",
-                        new UpdateTicketStatusRequest(TicketStatus.RESOLVED)
-                )
+                () -> ticketService.updateStatus(1L, new UpdateTicketStatusRequest(TicketStatus.RESOLVED))
         );
     }
 }

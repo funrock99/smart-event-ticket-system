@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "./api/client";
 import AlarmForm from "./components/AlarmForm";
 import AlarmTimeline from "./components/AlarmTimeline";
@@ -9,39 +9,41 @@ import TicketTable from "./components/TicketTable";
 import Toast from "./components/Toast";
 import { createInitialSummary, getAllowedNextStatuses, normalizeErrorMessage, stringifyResult } from "./lib/utils";
 
-const initialAlarmForm = {
-    equipmentId: "",
-    alarmCode: "TEMP_HIGH",
+const initialEventForm = {
+    source: "payment-system",
+    eventType: "TRANSACTION_ERROR",
+    businessKey: "TXN-10001",
     severity: "HIGH",
-    message: "Temperature exceeded threshold"
+    message: "Transaction failed due to account validation error",
+    payload: '{"transactionId":"TXN-10001"}',
+    idempotencyKey: ""
 };
 
 const initialTicketForm = {
-    ticketNo: "",
-    assignee: "Dennis"
+    ticketId: "",
+    assignee: "Ops-Desk"
 };
 
 export default function App() {
     const [summary, setSummary] = useState(createInitialSummary);
-    const [equipments, setEquipments] = useState([]);
     const [tickets, setTickets] = useState([]);
-    const [alarms, setAlarms] = useState([]);
+    const [events, setEvents] = useState([]);
     const [lastRefreshText, setLastRefreshText] = useState("尚未更新");
-    const [alarmForm, setAlarmForm] = useState(initialAlarmForm);
+    const [eventForm, setEventForm] = useState(initialEventForm);
     const [ticketForm, setTicketForm] = useState(initialTicketForm);
-    const [lastTicketNo, setLastTicketNo] = useState("");
-    const [alarmResult, setAlarmResult] = useState("尚未送出異常事件。");
+    const [lastTicketId, setLastTicketId] = useState("");
+    const [eventResult, setEventResult] = useState("尚未送出事件。");
     const [ticketResult, setTicketResult] = useState("尚未操作工單。");
     const [toast, setToast] = useState({ message: "", type: "" });
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [isSubmittingAlarm, setIsSubmittingAlarm] = useState(false);
+    const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
     const [isAssigningTicket, setIsAssigningTicket] = useState(false);
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     useEffect(() => {
         refreshAll({ silent: false }).catch((error) => {
             showToast("前端初始化失敗", "error");
-            setAlarmResult(`初始化失敗\n${normalizeErrorMessage(error)}`);
+            setEventResult(`初始化失敗\n${normalizeErrorMessage(error)}`);
         });
     }, []);
 
@@ -57,6 +59,33 @@ export default function App() {
         return () => window.clearTimeout(timer);
     }, [toast]);
 
+    const sourceRows = useMemo(() => {
+        const sourceMap = new Map();
+        events.forEach((event) => {
+            const current = sourceMap.get(event.source) || {
+                source: event.source,
+                count: 0,
+                highestSeverity: event.severity,
+                latestEventType: event.eventType,
+                latestOccurredAt: event.occurredAt
+            };
+            current.count += 1;
+            current.latestEventType = event.eventType;
+            current.latestOccurredAt = event.occurredAt;
+            current.highestSeverity = compareSeverity(current.highestSeverity, event.severity) >= 0
+                ? current.highestSeverity
+                : event.severity;
+            sourceMap.set(event.source, current);
+        });
+
+        return [...sourceMap.values()].sort((left, right) => {
+            if (right.count !== left.count) {
+                return right.count - left.count;
+            }
+            return left.source.localeCompare(right.source);
+        });
+    }, [events]);
+
     function showToast(message, type = "") {
         setToast({ message, type });
     }
@@ -68,32 +97,25 @@ export default function App() {
         }
 
         try {
-            const [nextSummary, nextEquipments, nextTickets, nextAlarms] = await Promise.all([
+            const [nextSummary, nextTickets, nextEvents] = await Promise.all([
                 apiFetch("/api/dashboard/summary"),
-                apiFetch("/api/equipments"),
                 apiFetch("/api/tickets"),
-                apiFetch("/api/alarms")
+                apiFetch("/api/events")
             ]);
 
-            const safeEquipments = Array.isArray(nextEquipments) ? nextEquipments : [nextEquipments];
             const safeTickets = Array.isArray(nextTickets) ? nextTickets : [nextTickets];
-            const safeAlarms = Array.isArray(nextAlarms) ? nextAlarms : [nextAlarms];
+            const safeEvents = Array.isArray(nextEvents) ? nextEvents : [nextEvents];
 
             setSummary(nextSummary);
-            setEquipments(safeEquipments);
             setTickets(safeTickets);
-            setAlarms(safeAlarms);
+            setEvents(safeEvents);
             setLastRefreshText(new Date().toLocaleTimeString("zh-TW", { hour12: false }));
-            setAlarmForm((current) => {
-                const hasSelectedEquipment = safeEquipments.some((equipment) => equipment.equipmentId === current.equipmentId);
-                if (hasSelectedEquipment) {
+            setTicketForm((current) => {
+                const hasSelectedTicket = safeTickets.some((ticket) => String(ticket.id) === current.ticketId);
+                if (hasSelectedTicket || !safeTickets.length) {
                     return current;
                 }
-
-                return {
-                    ...current,
-                    equipmentId: safeEquipments[0]?.equipmentId || ""
-                };
+                return { ...current, ticketId: String(safeTickets[0].id) };
             });
         } finally {
             if (!silent) {
@@ -102,9 +124,9 @@ export default function App() {
         }
     }
 
-    function handleAlarmFormChange(event) {
+    function handleEventFormChange(event) {
         const { name, value } = event.target;
-        setAlarmForm((current) => ({ ...current, [name]: value }));
+        setEventForm((current) => ({ ...current, [name]: value }));
     }
 
     function handleTicketFormChange(event) {
@@ -112,47 +134,68 @@ export default function App() {
         setTicketForm((current) => ({ ...current, [name]: value }));
     }
 
-    async function handleAlarmSubmit(event) {
-        event.preventDefault();
-        setIsSubmittingAlarm(true);
+    async function handleEventSubmit(submitEvent) {
+        submitEvent.preventDefault();
+        setIsSubmittingEvent(true);
 
         try {
-            const result = await apiFetch("/api/alarms", {
+            const headers = {};
+            if (eventForm.idempotencyKey.trim()) {
+                headers["Idempotency-Key"] = eventForm.idempotencyKey.trim();
+            }
+
+            const result = await apiFetch("/api/events", {
                 method: "POST",
-                body: JSON.stringify(alarmForm)
+                headers,
+                body: JSON.stringify({
+                    source: eventForm.source,
+                    eventType: eventForm.eventType,
+                    businessKey: eventForm.businessKey,
+                    severity: eventForm.severity,
+                    message: eventForm.message,
+                    payload: eventForm.payload || null
+                })
             });
 
-            setLastTicketNo(result.ticketNo);
-            setTicketForm((current) => ({ ...current, ticketNo: result.ticketNo }));
-            setAlarmResult(stringifyResult("異常上報成功", result));
-            showToast(`已建立工單 ${result.ticketNo}`);
+            if (result.ticketId) {
+                setLastTicketId(String(result.ticketId));
+                setTicketForm((current) => ({ ...current, ticketId: String(result.ticketId) }));
+            }
+            setEventResult(stringifyResult("事件接收結果", result));
+            showToast(result.message || "事件已送出");
 
             try {
                 await refreshAll();
             } catch (refreshError) {
-                showToast(`異常已建立，但畫面刷新失敗：${normalizeErrorMessage(refreshError)}`, "error");
+                showToast(`事件已處理，但畫面刷新失敗：${normalizeErrorMessage(refreshError)}`, "error");
             }
         } catch (error) {
-            setAlarmResult(`異常上報失敗\n${normalizeErrorMessage(error)}`);
-            showToast("異常上報失敗", "error");
+            setEventResult(`事件送出失敗\n${normalizeErrorMessage(error)}`);
+            showToast("事件送出失敗", "error");
         } finally {
-            setIsSubmittingAlarm(false);
+            setIsSubmittingEvent(false);
         }
     }
 
-    async function handleAssignSubmit(event) {
-        event.preventDefault();
+    async function handleAssignSubmit(assignEvent) {
+        assignEvent.preventDefault();
+        const targetTicketId = ticketForm.ticketId || lastTicketId;
+        if (!targetTicketId) {
+            showToast("請先選擇工單", "error");
+            return;
+        }
+
         setIsAssigningTicket(true);
 
         try {
-            const result = await apiFetch(`/api/tickets/${encodeURIComponent(ticketForm.ticketNo)}/assign`, {
+            const result = await apiFetch(`/api/tickets/${encodeURIComponent(targetTicketId)}/assign`, {
                 method: "PUT",
                 body: JSON.stringify({ assignee: ticketForm.assignee })
             });
 
-            setLastTicketNo(ticketForm.ticketNo);
+            setLastTicketId(String(targetTicketId));
             setTicketResult(stringifyResult("工單指派成功", result));
-            showToast(`工單 ${ticketForm.ticketNo} 已指派給 ${ticketForm.assignee}`);
+            showToast(`工單 ${result.ticketNo} 已指派給 ${ticketForm.assignee}`);
 
             try {
                 await refreshAll();
@@ -168,23 +211,23 @@ export default function App() {
     }
 
     async function handleStatusUpdate(status) {
-        const targetTicketNo = ticketForm.ticketNo || lastTicketNo;
-        if (!targetTicketNo) {
-            showToast("請先輸入或建立工單編號", "error");
+        const targetTicketId = ticketForm.ticketId || lastTicketId;
+        if (!targetTicketId) {
+            showToast("請先選擇工單", "error");
             return;
         }
 
         setIsUpdatingStatus(true);
 
         try {
-            const result = await apiFetch(`/api/tickets/${encodeURIComponent(targetTicketNo)}/status`, {
+            const result = await apiFetch(`/api/tickets/${encodeURIComponent(targetTicketId)}/status`, {
                 method: "PUT",
                 body: JSON.stringify({ status })
             });
 
-            setLastTicketNo(targetTicketNo);
+            setLastTicketId(String(targetTicketId));
             setTicketResult(stringifyResult(`工單狀態已更新為 ${status}`, result));
-            showToast(`工單 ${targetTicketNo} -> ${status}`);
+            showToast(`工單 ${result.ticketNo} -> ${status}`);
 
             try {
                 await refreshAll();
@@ -199,8 +242,8 @@ export default function App() {
         }
     }
 
-    const activeTicketNo = ticketForm.ticketNo || lastTicketNo;
-    const currentTicket = tickets.find((ticket) => ticket.ticketNo === activeTicketNo);
+    const activeTicketId = ticketForm.ticketId || lastTicketId;
+    const currentTicket = tickets.find((ticket) => String(ticket.id) === String(activeTicketId));
     const allowedStatuses = currentTicket ? getAllowedNextStatuses(currentTicket.status) : [];
 
     async function handleRefreshClick() {
@@ -217,14 +260,14 @@ export default function App() {
             <div className="page-shell">
                 <header className="hero">
                     <div className="hero-copy">
-                        <p className="eyebrow">Smart Maintenance Ticket System</p>
-                        <h1>設備異常到維修工單的完整 Demo 前端</h1>
+                        <p className="eyebrow">Smart Event Ticket System</p>
+                        <h1>高併發事件接收與工單派發平台</h1>
                         <p className="hero-text">
-                            這個頁面直接串接 Spring Boot API，展示設備狀態、異常上報、工單處理與 Dashboard 統計。
+                            這個 Dashboard 直接串接 Spring Boot API，展示事件接收、Redis 去重、工單派發與事件統計，模擬 payment-system、customer-service、monitoring-system 等來源的集中上報情境。
                         </p>
                         <div className="hero-actions">
                             <button className="primary-btn" disabled={isRefreshing} type="button" onClick={handleRefreshClick}>
-                                {isRefreshing ? "整理中..." : "重新整理全系統"}
+                                {isRefreshing ? "整理中..." : "重新整理事件看板"}
                             </button>
                             <a className="ghost-link" href="/swagger-ui/index.html" rel="noreferrer" target="_blank">開啟 Swagger</a>
                         </div>
@@ -232,14 +275,19 @@ export default function App() {
                     <SummaryCards lastRefreshText={lastRefreshText} summary={summary} />
                 </header>
                 <main className="content-grid">
-                    <AlarmForm equipments={equipments} form={alarmForm} isSubmitting={isSubmittingAlarm} result={alarmResult} onChange={handleAlarmFormChange} onSubmit={handleAlarmSubmit} />
-                    <TicketControl allowedStatuses={allowedStatuses} form={ticketForm} isAssigning={isAssigningTicket} isUpdatingStatus={isUpdatingStatus} result={ticketResult} onAssign={handleAssignSubmit} onChange={handleTicketFormChange} onStatusUpdate={handleStatusUpdate} />
-                    <EquipmentTable equipments={equipments} />
+                    <AlarmForm form={eventForm} isSubmitting={isSubmittingEvent} result={eventResult} sourceRows={sourceRows} onChange={handleEventFormChange} onSubmit={handleEventSubmit} />
+                    <TicketControl allowedStatuses={allowedStatuses} form={ticketForm} isAssigning={isAssigningTicket} isUpdatingStatus={isUpdatingStatus} result={ticketResult} tickets={tickets} onAssign={handleAssignSubmit} onChange={handleTicketFormChange} onStatusUpdate={handleStatusUpdate} />
+                    <EquipmentTable sources={sourceRows} />
                     <TicketTable tickets={tickets} />
-                    <AlarmTimeline alarms={alarms} />
+                    <AlarmTimeline events={events} />
                 </main>
             </div>
             <Toast toast={toast} />
         </>
     );
+}
+
+function compareSeverity(left, right) {
+    const order = { LOW: 1, MEDIUM: 2, HIGH: 3, CRITICAL: 4 };
+    return (order[left] || 0) - (order[right] || 0);
 }

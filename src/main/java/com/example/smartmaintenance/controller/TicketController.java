@@ -34,22 +34,18 @@ public class TicketController {
         return ticketService.findAll(status, priority);
     }
 
-    @GetMapping("/{ticketNo}")
-    public TicketResponse findByTicketNo(@PathVariable String ticketNo) {
-        return ticketService.findByTicketNo(ticketNo);
+    @GetMapping("/{id}")
+    public TicketResponse findById(@PathVariable Long id) {
+        return ticketService.findById(id);
     }
 
-    @PutMapping("/{ticketNo}/assign")
-    public TicketResponse assign(@PathVariable String ticketNo, @Valid @RequestBody AssignTicketRequest request) {
-        return ticketService.assignTicket(ticketNo, request);
+    @PutMapping("/{id}/assign")
+    public TicketResponse assign(@PathVariable Long id, @Valid @RequestBody AssignTicketRequest request) {
+        return ticketService.assignTicket(id, request);
     }
 
-    @PutMapping("/{ticketNo}/status")
-    public TicketResponse updateStatus(
-            @PathVariable String ticketNo,
-            @Valid @RequestBody UpdateTicketStatusRequest request
-    ) {
-        return ticketService.updateStatus(ticketNo, request);
+    @PutMapping("/{id}/status")
+    public TicketResponse updateStatus(@PathVariable Long id, @Valid @RequestBody UpdateTicketStatusRequest request) {
+        return ticketService.updateStatus(id, request);
     }
 }
-

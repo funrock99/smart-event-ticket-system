@@ -1,6 +1,7 @@
 package com.example.smartmaintenance.entity;
 
 import com.example.smartmaintenance.enums.AlarmSeverity;
+import com.example.smartmaintenance.enums.EventType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -20,11 +21,15 @@ public class AlarmEvent {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 30)
-    private String equipmentId;
-
     @Column(nullable = false, length = 50)
-    private String alarmCode;
+    private String source;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private EventType eventType;
+
+    @Column(nullable = false, length = 100)
+    private String businessKey;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -32,6 +37,9 @@ public class AlarmEvent {
 
     @Column(nullable = false, length = 500)
     private String message;
+
+    @Column(length = 5000)
+    private String payload;
 
     @Column(nullable = false)
     private LocalDateTime occurredAt;
@@ -57,20 +65,28 @@ public class AlarmEvent {
         this.id = id;
     }
 
-    public String getEquipmentId() {
-        return equipmentId;
+    public String getSource() {
+        return source;
     }
 
-    public void setEquipmentId(String equipmentId) {
-        this.equipmentId = equipmentId;
+    public void setSource(String source) {
+        this.source = source;
     }
 
-    public String getAlarmCode() {
-        return alarmCode;
+    public EventType getEventType() {
+        return eventType;
     }
 
-    public void setAlarmCode(String alarmCode) {
-        this.alarmCode = alarmCode;
+    public void setEventType(EventType eventType) {
+        this.eventType = eventType;
+    }
+
+    public String getBusinessKey() {
+        return businessKey;
+    }
+
+    public void setBusinessKey(String businessKey) {
+        this.businessKey = businessKey;
     }
 
     public AlarmSeverity getSeverity() {
@@ -89,6 +105,14 @@ public class AlarmEvent {
         this.message = message;
     }
 
+    public String getPayload() {
+        return payload;
+    }
+
+    public void setPayload(String payload) {
+        this.payload = payload;
+    }
+
     public LocalDateTime getOccurredAt() {
         return occurredAt;
     }
@@ -105,4 +129,3 @@ public class AlarmEvent {
         this.createdAt = createdAt;
     }
 }
-

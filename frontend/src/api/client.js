@@ -5,12 +5,14 @@ function buildUrl(path) {
 }
 
 export async function apiFetch(path, options = {}) {
+    const { headers: customHeaders = {}, ...restOptions } = options;
+
     const response = await fetch(buildUrl(path), {
+        ...restOptions,
         headers: {
             "Content-Type": "application/json",
-            ...(options.headers || {})
-        },
-        ...options
+            ...customHeaders
+        }
     });
 
     if (!response.ok) {

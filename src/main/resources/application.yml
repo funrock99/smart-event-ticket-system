@@ -1,6 +1,6 @@
 spring:
   application:
-    name: smart-maintenance-ticket-system
+    name: smart-event-ticket-system
   datasource:
     url: jdbc:h2:mem:smart_maintenance;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
@@ -37,3 +37,5 @@ app:
     recent-alarm-ttl: 30m
     alarm-dedup-ttl: 2m
     recent-alarm-limit: 20
+    rate-limit-window: 1m
+    rate-limit-per-minute: 60

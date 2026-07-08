@@ -20,27 +20,28 @@ class AlarmRecentIntegrationTest {
     private MockMvc mockMvc;
 
     @Test
-    void postAlarmThenGetRecentShouldReturnCreatedAlarm() throws Exception {
-        mockMvc.perform(post("/api/alarms")
+    void postEventThenGetEventsShouldReturnCreatedEvent() throws Exception {
+        mockMvc.perform(post("/api/events")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "equipmentId": "EQP-001",
-                                  "alarmCode": "TEMP_HIGH",
+                                  "source": "payment-system",
+                                  "eventType": "TRANSACTION_ERROR",
+                                  "businessKey": "TXN-001",
                                   "severity": "HIGH",
-                                  "message": "Temperature exceeded threshold"
+                                  "message": "Transaction failed",
+                                  "payload": "{}"
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.equipmentId").value("EQP-001"))
-                .andExpect(jsonPath("$.alarmCode").value("TEMP_HIGH"))
-                .andExpect(jsonPath("$.ticketNo").exists());
+                .andExpect(jsonPath("$.eventId").exists())
+                .andExpect(jsonPath("$.ticketId").exists())
+                .andExpect(jsonPath("$.duplicated").value(false));
 
-        mockMvc.perform(get("/api/alarms/recent"))
+        mockMvc.perform(get("/api/events"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].equipmentId").value("EQP-001"))
-                .andExpect(jsonPath("$[0].alarmCode").value("TEMP_HIGH"))
-                .andExpect(jsonPath("$[0].severity").value("HIGH"))
-                .andExpect(jsonPath("$[0].message").value("Temperature exceeded threshold"));
+                .andExpect(jsonPath("$[0].source").value("payment-system"))
+                .andExpect(jsonPath("$[0].eventType").value("TRANSACTION_ERROR"))
+                .andExpect(jsonPath("$[0].businessKey").value("TXN-001"));
     }
 }

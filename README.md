@@ -1,22 +1,27 @@
-# Smart Maintenance Ticket System
+# Smart Event Ticket System
 
-React + Spring Boot 的設備異常監控與維修工單 Demo。這個專案模擬工廠設備發生異常後，系統如何完成異常上報、設備狀態異動、自動建立工單、工單處理，以及 Dashboard 統計展示的完整流程。
+React + Spring Boot 的高併發事件接收與工單派發平台。這個專案模擬企業在短時間內接收大量系統告警、客服案件、交易異常或監控事件後，如何完成事件接收、Redis 去重、Idempotency 控制、自動建單、工單派發，以及 Dashboard 統計展示的完整流程。
 
 適合用於：
 - GitHub 作品集展示
 - Java 後端 / 全端面試 Demo
-- 延伸成 CIM / MES / 設備整合相關題目
+- 延伸成金融業、企業後端、監控平台、內部事件處理系統題目
 
 ## Preview
 
-![Dashboard Preview](./Docs/dashboard-live.png)
+### Dashboard Overview
+
+![Dashboard Overview](./Docs/dashboard-live.png)
+
+### Event Submitted State
+
+![Dashboard After Event Submission](./Docs/dashboard-event-submitted.png)
 
 ## Highlights
 
-- React Dashboard 提供設備、工單、異常事件與統計卡片的即時展示
-- Spring Boot REST API 負責設備管理、異常事件、工單流程與 Dashboard Summary
-- 異常上報後會自動更新設備狀態並建立維修工單
-- Redis 用於 Dashboard Summary 快取、最近告警暫存與異常去重
+- React Dashboard 提供事件上報、事件流、來源排行、工單派發與統計卡片展示
+- Spring Boot REST API 提供事件接收、批次事件、模擬事件、工單流程與 Dashboard Summary
+- Redis 用於事件去重、Idempotency Key、Rate Limiting 與 Dashboard 快取
 - 支援 Docker Compose，本機可快速完成 App + Redis 啟動
 - `mvn package` 會自動建置 React 前端並將靜態檔打進 jar
 
@@ -27,8 +32,8 @@ graph TD
     A[React Dashboard] -->|HTTP /api| B[Spring Boot API]
     B --> C[(H2 / PostgreSQL)]
     B --> D[(Redis)]
-    E[Alarm Event] --> B
-    B --> F[Maintenance Ticket]
+    E[Event Sources] --> B
+    B --> F[Ticket Workflow]
     B --> G[Dashboard Summary]
 ```
 
@@ -58,14 +63,18 @@ graph TD
 
 ## Core Features
 
-- 設備清單查詢與狀態展示
-- 異常事件上報與異常歷程查詢
-- 自動建立維修工單
+- `POST /api/events` 事件接收入口
+- `GET /api/events` / `GET /api/events/{id}` 事件查詢
+- `POST /api/events/batch` 批次事件處理
+- `POST /api/events/simulate` 模擬大量事件上報
+- `GET /api/events/dedup-stats` 去重統計
+- 自動建立 Ticket
 - 工單指派與狀態流轉
 - Dashboard Summary 統計
 - Redis Dashboard 快取
-- 最近異常事件 Redis 快取
-- 短時間異常去重，避免重複建單
+- Redis Deduplication，避免重複建單
+- Idempotency Key 防止重送請求重複處理
+- Rate Limiting 保護單一來源高頻請求
 - 全域例外處理與參數驗證
 
 ## Project Structure
@@ -103,6 +112,7 @@ smart-maintenance-ticket-system
 
 ## API Docs
 
+- App: `http://localhost:8080/`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 - H2 Console: `http://localhost:8080/h2-console`
@@ -180,44 +190,106 @@ npm run build
 mvn -Dtest=AlarmRecentRedisContainerIntegrationTest test
 ```
 
+## API Overview
+
+### Event APIs
+
+```http
+POST /api/events
+GET /api/events
+GET /api/events/{id}
+POST /api/events/batch
+POST /api/events/simulate
+GET /api/events/dedup-stats
+```
+
+### Ticket APIs
+
+```http
+GET /api/tickets
+GET /api/tickets/{id}
+PUT /api/tickets/{id}/assign
+PUT /api/tickets/{id}/status
+```
+
+### Dashboard API
+
+```http
+GET /api/dashboard/summary
+```
+
+## Example Request
+
+```http
+POST /api/events
+Idempotency-Key: IDEMP-20260709-0001
+Content-Type: application/json
+```
+
+```json
+{
+  "source": "payment-system",
+  "eventType": "TRANSACTION_ERROR",
+  "businessKey": "TXN-10001",
+  "severity": "HIGH",
+  "message": "Transaction failed due to account validation error",
+  "payload": "{\"transactionId\":\"TXN-10001\"}"
+}
+```
+
+## Example Response
+
+```json
+{
+  "success": true,
+  "eventId": 1,
+  "ticketId": 1,
+  "duplicated": false,
+  "rateLimited": false,
+  "message": "Event accepted and ticket created"
+}
+```
+
 ## Demo Flow
 
 1. 開啟 React Dashboard
-2. 查詢設備清單，確認初始狀態為 `RUNNING`
-3. 送出一筆 `POST /api/alarms` 異常事件
-4. 觀察設備狀態變為 `DOWN`
-5. 觀察系統自動建立維修工單
-6. 指派工單處理人員
-7. 更新工單狀態為 `IN_PROGRESS`、`RESOLVED`、`CLOSED`
-8. 重新查看 Dashboard Summary 與異常歷程
+2. 送出一筆 `POST /api/events` 事件
+3. 觀察事件流新增資料
+4. 觀察系統自動建立工單
+5. 指派工單處理人員
+6. 更新工單狀態為 `PROCESSING`、`RESOLVED`、`CLOSED`
+7. 重新查看 Dashboard Summary、來源排行與去重統計
+8. 重複送出相同 `source + eventType + businessKey` 觀察 duplicated 結果
 
 ## Redis Keys
 
 - `dashboard:summary`
-- `equipment:status:{equipmentId}`
-- `alarm:recent`
-- `alarm:dedup:{equipmentId}:{alarmCode}`
+- `alarm:dedup:{source}:{eventType}:{businessKey}`
+- `idempotency:{idempotencyKey}`
+- `rate:{source}:{minute}`
+- `metrics:duplicate-events`
+- `metrics:rate-limited-events`
 
 ## Domain Rules
 
-- 工單狀態流程：`OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED`
-- 設備狀態會隨工單流程更新：
-  - 異常上報後：`DOWN`
-  - 工單處理中：`MAINTENANCE`
-  - 工單結案後：`RUNNING`
-- Redis 不可用時，核心建單流程仍可回退到資料庫邏輯
+- 工單狀態流程：`OPEN -> PROCESSING -> RESOLVED -> CLOSED`
+- 相同 `source + eventType + businessKey` 在 dedup window 內會被視為重複事件
+- 相同 `Idempotency-Key` 搭配相同 request payload 不會重複建立 Event / Ticket
+- 單一來源在短時間高頻請求時會觸發 Rate Limiting
+- Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+## Current Notes
+
+- 專案目錄與 Java package 目前仍沿用 `smartmaintenance` 命名，功能主軸已改為事件平台
+- `data.sql` 仍保留舊設備示範資料，但目前 Dashboard 已不依賴設備清單
+- `docker compose up --build` 會同時建置 React 與 Spring Boot
+- `mvn test` 目前已通過；Redis Testcontainers 測試在沒有 Docker 環境時會自動略過
 
 ## Roadmap
 
-- PostgreSQL 正式資料庫支援
-- 更多 Dashboard 圖表與篩選條件
-- 設備心跳 / 離線檢測
-- JWT 驗證與角色權限
-- GitHub Actions CI
-- Cloud Run / 雲端部署範例
-
-## Notes
-
-- `data.sql` 預載三筆 Demo 設備資料
-- `docker compose up --build` 會同時建置 React 與 Spring Boot
-- `mvn test` 目前已通過，包含 Redis Testcontainers 測試
+- 補上 Event Source 主檔 API
+- 補上 PostgreSQL 正式資料庫支援
+- 加入 k6 壓測腳本與報表
+- 加入 GitHub Actions CI
+- 補強 Dashboard 圖表與來源篩選
+- 部署到 Cloud Run / Render / Railway

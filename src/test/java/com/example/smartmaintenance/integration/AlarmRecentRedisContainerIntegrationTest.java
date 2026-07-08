@@ -1,12 +1,10 @@
 package com.example.smartmaintenance.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,31 +47,31 @@ class AlarmRecentRedisContainerIntegrationTest {
     }
 
     @Test
-    void postAlarmShouldWriteRecentAlarmToRedisAndRecentApiShouldReadIt() throws Exception {
-        mockMvc.perform(post("/api/alarms")
+    void duplicateEventShouldIncrementDedupMetric() throws Exception {
+        String payload = """
+                {
+                  "source": "payment-system",
+                  "eventType": "TRANSACTION_ERROR",
+                  "businessKey": "TXN-001",
+                  "severity": "HIGH",
+                  "message": "Transaction failed",
+                  "payload": "{}"
+                }
+                """;
+
+        mockMvc.perform(post("/api/events")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "equipmentId": "EQP-001",
-                                  "alarmCode": "TEMP_HIGH",
-                                  "severity": "HIGH",
-                                  "message": "Temperature exceeded threshold"
-                                }
-                                """))
+                        .content(payload))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.equipmentId").value("EQP-001"))
-                .andExpect(jsonPath("$.alarmCode").value("TEMP_HIGH"));
+                .andExpect(jsonPath("$.duplicated").value(false));
 
-        List<String> cachedAlarms = redisTemplate.opsForList().range("alarm:recent", 0, -1);
-        assertThat(cachedAlarms).isNotNull().hasSize(1);
-        assertThat(cachedAlarms.get(0)).contains("\"equipmentId\":\"EQP-001\"");
-        assertThat(cachedAlarms.get(0)).contains("\"alarmCode\":\"TEMP_HIGH\"");
-
-        mockMvc.perform(get("/api/alarms/recent"))
+        mockMvc.perform(post("/api/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].equipmentId").value("EQP-001"))
-                .andExpect(jsonPath("$[0].alarmCode").value("TEMP_HIGH"))
-                .andExpect(jsonPath("$[0].severity").value("HIGH"))
-                .andExpect(jsonPath("$[0].message").value("Temperature exceeded threshold"));
+                .andExpect(jsonPath("$.duplicated").value(true));
+
+        String duplicateCount = redisTemplate.opsForValue().get("metrics:duplicate-events");
+        assertThat(duplicateCount).isEqualTo("1");
     }
 }

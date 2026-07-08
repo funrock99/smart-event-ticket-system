@@ -21,8 +21,8 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI());
     }
 
-    @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicate(DuplicateResourceException ex, HttpServletRequest request) {
+    @ExceptionHandler({DuplicateResourceException.class, InvalidIdempotencyRequestException.class})
+    public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex, HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI());
     }
 
@@ -66,4 +66,3 @@ public class GlobalExceptionHandler {
         return fieldError.getField() + " " + fieldError.getDefaultMessage();
     }
 }
-
