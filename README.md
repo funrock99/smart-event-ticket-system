@@ -2,11 +2,6 @@
 
 React + Spring Boot 的高併發事件接收與工單派發平台。這個專案模擬企業在短時間內接收大量系統告警、客服案件、交易異常或監控事件後，如何完成事件接收、Redis 去重、Idempotency 控制、自動建單、工單派發，以及 Dashboard 統計展示的完整流程。
 
-適合用於：
-- GitHub 作品集展示
-- Java 後端 / 全端面試 Demo
-- 延伸成金融業、企業後端、監控平台、內部事件處理系統題目
-
 ## Preview
 
 ### Dashboard Overview
@@ -293,3 +288,4 @@ Content-Type: application/json
 - 加入 GitHub Actions CI
 - 補強 Dashboard 圖表與來源篩選
 - 部署到 Cloud Run / Render / Railway
+
