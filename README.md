@@ -305,13 +305,3 @@ Content-Type: application/json
 - `docker compose up --build` 會同時建置 React 與 Spring Boot
 - `mvn test` 目前已通過；Redis Testcontainers 測試在沒有 Docker 環境時會自動略過
 
-## Roadmap
-
-- 補上 Event Source 主檔 API
-- 補上 PostgreSQL 正式資料庫支援
-- 加入 k6 壓測腳本與報表
-- 加入 GitHub Actions CI
-- 補強 Dashboard 圖表與來源篩選
-- 部署到 Cloud Run / Render / Railway
-
-
