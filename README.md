@@ -72,6 +72,31 @@ graph TD
 - Rate Limiting 保護單一來源高頻請求
 - 全域例外處理與參數驗證
 
+## Why It Stands Out
+
+- 不是單純的工單 CRUD，而是把專案主軸拉成企業後端常見的高頻事件接收平台
+- 用事件來源、事件類型與 business key 模擬交易異常、客服案件、監控告警等真實場景
+- 前端、後端、Redis、Docker Compose 都已串起來，可直接用 Dashboard 與 Swagger Demo
+- 可以從 API 設計、服務保護、狀態流轉、快取策略到 UI 展示一次講完整體設計
+
+## High Concurrency Design
+
+系統在 `POST /api/events` 的入口採用分層保護流程，避免大量重複事件或重送請求直接壓到資料庫：
+
+1. `Rate Limiting`
+   - 使用 Redis key `rate:{source}:{minute}` 控制單一來源短時間請求量
+   - 超過門檻時直接回應，避免單一來源打爆後端
+2. `Idempotency Key`
+   - 使用 Redis key `idempotency:{idempotencyKey}` 記錄已處理請求
+   - 相同請求重送時不重複建立 Event / Ticket
+3. `Deduplication`
+   - 使用 Redis key `alarm:dedup:{source}:{eventType}:{businessKey}`
+   - 相同來源、相同事件類型、相同業務鍵值在 dedup window 內視為重複事件，不重複建單
+4. `Database as Source of Truth`
+   - Redis 是保護層與快取層，正式資料仍落在關聯式資料庫
+   - 讓系統同時兼顧高頻請求保護與資料一致性
+5. `Dashboard Cache`
+   - `dashboard:summary` 使用 Redis 快取，降低高頻查詢對 DB 的壓力
 ## Project Structure
 
 ```text
@@ -288,4 +313,5 @@ Content-Type: application/json
 - 加入 GitHub Actions CI
 - 補強 Dashboard 圖表與來源篩選
 - 部署到 Cloud Run / Render / Railway
+
 
