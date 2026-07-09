@@ -121,6 +121,7 @@ public class AlarmService {
                     "Event accepted and ticket created"
             );
             idempotencyService.markCompleted(idempotencyKey, requestHash, response);
+            cacheService.evictDashboardSummaryThrottled();
             return new EventProcessingResult(HttpStatus.CREATED, response);
         } catch (RuntimeException ex) {
             idempotencyService.markFailed(idempotencyKey, requestHash, ex.getClass().getSimpleName());

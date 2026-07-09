@@ -16,7 +16,10 @@ export default function EquipmentTable({ sources }) {
             <div className="section-title inline-title">
                 <div>
                     <p>Source Ranking</p>
-                    <h2>事件來源排行</h2>
+                    <h2 style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        事件來源排行
+                        <span style={{ fontSize: "14px", fontWeight: "normal", color: "#888" }}>(僅統計成功立案之有效事件)</span>
+                    </h2>
                 </div>
                 <span className="pill">{sources.length} 個來源</span>
             </div>
