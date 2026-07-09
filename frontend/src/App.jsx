@@ -28,6 +28,10 @@ export default function App() {
     const [summary, setSummary] = useState(createInitialSummary);
     const [tickets, setTickets] = useState([]);
     const [events, setEvents] = useState([]);
+    const [eventPage, setEventPage] = useState(0);
+    const [ticketPage, setTicketPage] = useState(0);
+    const [eventPageInfo, setEventPageInfo] = useState({ number: 0, totalPages: 0, totalElements: 0 });
+    const [ticketPageInfo, setTicketPageInfo] = useState({ number: 0, totalPages: 0, totalElements: 0 });
     const [lastRefreshText, setLastRefreshText] = useState("尚未更新");
     const [eventForm, setEventForm] = useState(initialEventForm);
     const [ticketForm, setTicketForm] = useState(initialTicketForm);
@@ -91,7 +95,7 @@ export default function App() {
     }
 
     async function refreshAll(options = {}) {
-        const { silent = true } = options;
+        const { silent = true, targetTicketPage = ticketPage, targetEventPage = eventPage } = options;
         if (!silent) {
             setIsRefreshing(true);
         }
@@ -99,8 +103,8 @@ export default function App() {
         try {
             const [nextSummary, nextTickets, nextEvents] = await Promise.all([
                 apiFetch("/api/dashboard/summary"),
-                apiFetch("/api/tickets?page=0&size=20&sort=createdAt,desc"),
-                apiFetch("/api/events?page=0&size=20&sort=occurredAt,desc")
+                apiFetch(`/api/tickets?page=${targetTicketPage}&size=20&sort=createdAt,desc`),
+                apiFetch(`/api/events?page=${targetEventPage}&size=20&sort=occurredAt,desc`)
             ]);
 
             const safeTickets = Array.isArray(nextTickets?.content) ? nextTickets.content : [];
@@ -109,6 +113,10 @@ export default function App() {
             setSummary(nextSummary);
             setTickets(safeTickets);
             setEvents(safeEvents);
+            setEventPageInfo(nextEvents ? { number: nextEvents.page, totalPages: nextEvents.totalPages, totalElements: nextEvents.totalElements } : { number: 0, totalPages: 0, totalElements: 0 });
+            setTicketPageInfo(nextTickets ? { number: nextTickets.page, totalPages: nextTickets.totalPages, totalElements: nextTickets.totalElements } : { number: 0, totalPages: 0, totalElements: 0 });
+            setTicketPage(targetTicketPage);
+            setEventPage(targetEventPage);
             setLastRefreshText(new Date().toLocaleTimeString("zh-TW", { hour12: false }));
             setTicketForm((current) => {
                 const hasSelectedTicket = safeTickets.some((ticket) => String(ticket.id) === current.ticketId);
@@ -255,6 +263,14 @@ export default function App() {
         }
     }
 
+    function handleEventPageChange(newPage) {
+        refreshAll({ silent: false, targetEventPage: newPage });
+    }
+
+    function handleTicketPageChange(newPage) {
+        refreshAll({ silent: false, targetTicketPage: newPage });
+    }
+
     return (
         <>
             <div className="page-shell">
@@ -278,8 +294,8 @@ export default function App() {
                     <AlarmForm form={eventForm} isSubmitting={isSubmittingEvent} result={eventResult} sourceRows={sourceRows} onChange={handleEventFormChange} onSubmit={handleEventSubmit} />
                     <TicketControl allowedStatuses={allowedStatuses} form={ticketForm} isAssigning={isAssigningTicket} isUpdatingStatus={isUpdatingStatus} result={ticketResult} tickets={tickets} onAssign={handleAssignSubmit} onChange={handleTicketFormChange} onStatusUpdate={handleStatusUpdate} />
                     <EquipmentTable sources={sourceRows} />
-                    <TicketTable tickets={tickets} />
-                    <AlarmTimeline events={events} />
+                    <TicketTable tickets={tickets} pageInfo={ticketPageInfo} onPageChange={handleTicketPageChange} />
+                    <AlarmTimeline events={events} pageInfo={eventPageInfo} onPageChange={handleEventPageChange} />
                 </main>
             </div>
             <Toast toast={toast} />

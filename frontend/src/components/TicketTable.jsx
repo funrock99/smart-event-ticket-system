@@ -1,6 +1,7 @@
 import { formatDateTime } from "../lib/utils";
+import Pagination from "./Pagination";
 
-export default function TicketTable({ tickets }) {
+export default function TicketTable({ tickets, pageInfo, onPageChange }) {
     return (
         <section className="card wide-card">
             <div className="section-title inline-title">
@@ -44,6 +45,7 @@ export default function TicketTable({ tickets }) {
                     </tbody>
                 </table>
             </div>
+            <Pagination pageInfo={pageInfo} onPageChange={onPageChange} />
         </section>
     );
 }

@@ -1,6 +1,7 @@
 import { formatDateTime } from "../lib/utils";
+import Pagination from "./Pagination";
 
-export default function AlarmTimeline({ events }) {
+export default function AlarmTimeline({ events, pageInfo, onPageChange }) {
     return (
         <section className="card wide-card">
             <div className="section-title inline-title">
@@ -26,6 +27,7 @@ export default function AlarmTimeline({ events }) {
                     </article>
                 ))}
             </div>
+            <Pagination pageInfo={pageInfo} onPageChange={onPageChange} />
         </section>
     );
 }
