@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$projectRoot = "E:\Smart Maintenance Ticket System"
+$projectRoot = "E:\\smart event ticket system"
 
 Set-Location -LiteralPath $projectRoot
 docker compose down
+
 

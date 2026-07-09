@@ -20,6 +20,13 @@ React + Spring Boot 的高併發事件接收與工單派發平台。這個專案
 - 支援 Docker Compose，本機可快速完成 App + PostgreSQL + Redis 啟動
 - `mvn package` 會自動建置 React 前端並將靜態檔打進 jar
 
+## Current Notes
+
+- GitHub repository slug 已切換為 smart-event-ticket-system，舊網址通常仍可被 GitHub redirect。
+- 本地 origin 已指向 https://github.com/funrock99/smart-event-ticket-system.git。
+- 目前專案 Java package 為 com.example.smarteventticket。
+- Docker Compose 預設整合 Spring Boot、PostgreSQL 與 Redis。
+- Dashboard 已包含 idempotent replay 指標，Ticket API 已包含 SLA 與狀態歷程查詢。
 ## Architecture
 
 ```mermaid
@@ -325,5 +332,6 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
 
 

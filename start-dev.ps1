@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$projectRoot = "E:\Smart Maintenance Ticket System"
+$projectRoot = "E:\\smart event ticket system"
 $dockerDesktop = "C:\Program Files\Docker\Docker\Docker Desktop.exe"
 
 if (-not (Get-Process -Name "Docker Desktop" -ErrorAction SilentlyContinue)) {
@@ -25,4 +25,5 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
 
 docker compose up --build -d
 docker compose ps
+
 
