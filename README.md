@@ -1,8 +1,8 @@
 # Smart Event Ticket System
 
-面向 Backend 職缺展示的專案：我用 `Spring Boot + Redis + PostgreSQL` 設計並實作一個高併發事件接收與工單派發平台，重點放在事件入口保護、資料一致性、重複請求控制、同步建單流程，以及可量化的壓測驗證；`React` Dashboard 主要作為操作與展示介面。
+以 `Spring Boot + Redis + PostgreSQL` 設計並實作的高併發事件接收與工單派發平台，重點放在事件入口保護、資料一致性、重複請求控制、同步建單流程，以及可量化的壓測驗證；`React` Dashboard 主要作為操作與展示介面。
 
-## Recruiter Snapshot
+## Backend Highlights
 
 - 後端核心：以 `Spring Boot REST API` 承接高頻事件流，處理事件接收、自動建單、狀態流轉、SLA 計算與 Dashboard Summary
 - 流量保護設計：實作 Redis-based `Rate Limiting`、`Idempotency`、`Deduplication` 與 `Dashboard Cache`，降低 burst traffic、retry 與 duplicate event 對 DB 的衝擊
@@ -407,6 +407,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
 
 
 
