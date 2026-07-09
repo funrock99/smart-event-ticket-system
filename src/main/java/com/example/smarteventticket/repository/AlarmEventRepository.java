@@ -15,7 +15,7 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
     @Query("""
             select event
             from AlarmEvent event
-            where (:source is null or lower(event.source) = lower(:source))
+            where (:source is null or lower(event.source) = lower(cast(:source as string)))
               and (:eventType is null or event.eventType = :eventType)
               and (:severity is null or event.severity = :severity)
             """)
