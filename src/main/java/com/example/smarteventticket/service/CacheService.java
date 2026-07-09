@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +35,7 @@ public class CacheService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final Duration dashboardSummaryTtl;
+    private final Duration dashboardSummaryEvictDebounce;
     private final Duration equipmentStatusTtl;
     private final Duration recentAlarmTtl;
     private final Duration alarmDedupTtl;
@@ -42,11 +44,13 @@ public class CacheService {
     private final Duration idempotencyFailedTtl;
     private final Duration rateLimitWindow;
     private final long recentAlarmLimit;
+    private final AtomicLong lastDashboardSummaryEvictionAt = new AtomicLong(0L);
 
     public CacheService(
             StringRedisTemplate redisTemplate,
             ObjectMapper objectMapper,
             @Value("${app.redis.dashboard-summary-ttl:10m}") Duration dashboardSummaryTtl,
+            @Value("${app.redis.dashboard-summary-evict-debounce:500ms}") Duration dashboardSummaryEvictDebounce,
             @Value("${app.redis.equipment-status-ttl:30m}") Duration equipmentStatusTtl,
             @Value("${app.redis.recent-alarm-ttl:30m}") Duration recentAlarmTtl,
             @Value("${app.redis.alarm-dedup-ttl:2m}") Duration alarmDedupTtl,
@@ -59,6 +63,7 @@ public class CacheService {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.dashboardSummaryTtl = dashboardSummaryTtl;
+        this.dashboardSummaryEvictDebounce = dashboardSummaryEvictDebounce;
         this.equipmentStatusTtl = equipmentStatusTtl;
         this.recentAlarmTtl = recentAlarmTtl;
         this.alarmDedupTtl = alarmDedupTtl;
@@ -79,6 +84,18 @@ public class CacheService {
 
     public void evictDashboardSummary() {
         deleteKey(DASHBOARD_SUMMARY_KEY);
+    }
+
+    public void evictDashboardSummaryThrottled() {
+        long now = System.currentTimeMillis();
+        long debounceMillis = Math.max(0L, dashboardSummaryEvictDebounce.toMillis());
+        long previous = lastDashboardSummaryEvictionAt.get();
+        if (now - previous < debounceMillis) {
+            return;
+        }
+        if (lastDashboardSummaryEvictionAt.compareAndSet(previous, now)) {
+            deleteKey(DASHBOARD_SUMMARY_KEY);
+        }
     }
 
     public void cacheEquipmentStatus(String equipmentId, Enum<?> status) {
@@ -114,14 +131,21 @@ public class CacheService {
     }
 
     public boolean acquireAlarmDedupKey(String source, String eventType, String businessKey) {
-        try {
-            Boolean acquired = redisTemplate.opsForValue()
-                    .setIfAbsent(buildDedupKey(source, eventType, businessKey), "1", alarmDedupTtl);
-            return Boolean.TRUE.equals(acquired);
-        } catch (Exception ex) {
-            log.warn("Unable to acquire event dedup key from Redis: {}", ex.getMessage());
-            return true;
-        }
+        return writeIfAbsent(
+                buildDedupKey(source, eventType, businessKey),
+                new CachedDedupRecord(null),
+                alarmDedupTtl
+        );
+    }
+
+    public void updateAlarmDedupTicketId(String source, String eventType, String businessKey, Long ticketId) {
+        writeValue(buildDedupKey(source, eventType, businessKey), new CachedDedupRecord(ticketId), alarmDedupTtl);
+    }
+
+    public Optional<Long> getAlarmDedupTicketId(String source, String eventType, String businessKey) {
+        return readValue(buildDedupKey(source, eventType, businessKey), CachedDedupRecord.class)
+                .map(CachedDedupRecord::ticketId)
+                .filter(ticketId -> ticketId != null);
     }
 
     public Optional<CachedIdempotencyRecord> getIdempotencyRecord(String idempotencyKey) {
@@ -278,5 +302,8 @@ public class CacheService {
             EventIngestionResponse response,
             String errorCode
     ) {
+    }
+
+    public record CachedDedupRecord(Long ticketId) {
     }
 }

@@ -9,7 +9,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: docker-postgres
+      SPRING_PROFILES_ACTIVE: docker-postgres,loadtest
       SPRING_DATASOURCE_HOST: postgres
       SPRING_DATASOURCE_PORT: 5432
       SPRING_DATASOURCE_DB: smart_event_ticket

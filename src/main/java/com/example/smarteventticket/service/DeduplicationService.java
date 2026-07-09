@@ -3,6 +3,7 @@ package com.example.smarteventticket.service;
 import com.example.smarteventticket.dto.response.DedupStatsResponse;
 import com.example.smarteventticket.enums.EventType;
 import com.example.smarteventticket.repository.AlarmEventRepository;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +23,14 @@ public class DeduplicationService {
             cacheService.incrementDuplicateEventCount();
         }
         return !acquired;
+    }
+
+    public void rememberTicket(String source, EventType eventType, String businessKey, Long ticketId) {
+        cacheService.updateAlarmDedupTicketId(source, eventType.name(), businessKey, ticketId);
+    }
+
+    public Optional<Long> getDuplicateTicketId(String source, EventType eventType, String businessKey) {
+        return cacheService.getAlarmDedupTicketId(source, eventType.name(), businessKey);
     }
 
     public DedupStatsResponse getStats() {

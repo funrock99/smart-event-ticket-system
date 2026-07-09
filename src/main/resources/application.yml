@@ -47,3 +47,25 @@ app:
     rate-limit-window: 1m
     rate-limit-per-minute: 60
 
+---
+spring:
+  config:
+    activate:
+      on-profile: loadtest
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  datasource:
+    hikari:
+      maximum-pool-size: 30
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN

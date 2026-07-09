@@ -245,42 +245,47 @@ mvn -Dtest=PostgresRedisIntegrationTest test
 ### k6 Load Test
 
 ~~~bash
-k6 run k6/event-ingestion-test.js
+k6 run k6/03-mixed-production-like.js
 ~~~
 
-這個腳本已升級成多場景高併發測試組合，而不是單一 smoke test。預設會同時覆蓋：
+k6 測試已拆成 3 支腳本，分開觀察不同瓶頸：
 
-- `replay_consistency`：同一 `Idempotency-Key` 的重送一致性
-- `duplicate_suppression`：高頻重複業務事件的 dedup 行為
-- `burst_rate_limit`：突發流量下的 rate limiting 保護
-- `mixed_high_throughput`：accepted / replay / duplicate / rate-limited 混合流量
+- `k6/01-baseline-accepted.js`：只打 accepted path，確認同步 DB 寫入與交易延遲
+- `k6/02-redis-fast-path.js`：驗證 replay、duplicate、burst rate limit 這些 Redis 快路徑
+- `k6/03-mixed-production-like.js`：模擬 accepted / replay / duplicate / burst 的混合流量
+- `k6/event-ingestion-test.js`：保留相容入口，等同 mixed production-like 腳本
 
-### High Concurrency Targets
+### Route-Level Thresholds And Result Files
 
-- 預設壓測門檻：`http_req_failed < 2%`
-- 延遲目標：`p95 < 800ms`、`p99 < 1500ms`
-- 驗證指標：accepted、duplicate、replay、rate-limited 路徑都會被實際觸發
+每支腳本都已補上：
+
+- 全域門檻：`http_req_failed < 2%`、`http_req_duration p95 < 800ms`、`p99 < 1500ms`
+- route-level thresholds：`accepted`、`duplicate`、`replay`、`burst`
+- `dropped_iterations` threshold：驗證是否真的打到目標流量
+- `handleSummary()` 結果落檔：每次執行都會輸出到 `k6/results/` 的 `.txt` 與 `.json`
 
 ### Example Commands
 
 ~~~bash
-k6 run k6/event-ingestion-test.js
-BASE_URL=http://localhost:8080 MIXED_RATE=180 DUPLICATE_RATE=120 k6 run k6/event-ingestion-test.js
+k6 run k6/01-baseline-accepted.js
+k6 run k6/02-redis-fast-path.js
+k6 run k6/03-mixed-production-like.js
+BASE_URL=http://localhost:8080 MIXED_RATE=180 DUPLICATE_RATE=120 k6 run k6/03-mixed-production-like.js
 ~~~
 
 若本機未安裝 `k6` binary，可用 Docker 執行：
 
 ~~~bash
-docker run --rm --network smarteventticketsystem_default -e BASE_URL=http://app:8080 -v <repo>/k6:/scripts grafana/k6 run /scripts/event-ingestion-test.js
+docker run --rm --network smarteventticketsystem_default -e BASE_URL=http://app:8080 -v <repo>/k6:/scripts grafana/k6 run /scripts/03-mixed-production-like.js
 ~~~
 
 ### Load Test Snapshot
 
-- 基礎驗證：Dockerized k6 對 `http://app:8080` 執行 `20 VUs / 30s`，共 `600` requests，`http_req_failed=0.00%`
-- 基礎驗證延遲：`avg=15.44ms`、`p95=52.03ms`、`max=194.16ms`
-- 多場景縮短驗證：`replay + duplicate + burst + mixed` 同時執行，合計約 `3650` requests、約 `202.75 req/s`
-- 多場景縮短驗證結果：`http_req_failed=0.49%`，但延遲門檻未達標，`p95=1.27s`、`p99=2.14s`
-- 這代表系統在輕中度並發下穩定，但在約 `200 req/s` 的混合壓力下已接近瓶頸；這組結果可用來說明目前能力邊界與後續優化方向
+- 最新 clean mixed retest：Dockerized k6 對 `http://app:8080` 執行縮短版混合流量，共 `1659` requests，約 `89.66 req/s`
+- 最新 clean mixed retest 結果：`http_req_failed=2.59%`、`p95=9.49s`、`p99=11.08s`
+- 最新 clean mixed retest 補充：`dropped_iterations=1596`，且 `burst_rate_limit` 場景曾打滿 `320` active VUs
+- 這代表目前系統尚未穩定滿足高併發 mixed scenario 的目標，瓶頸不只在 tail latency，也包含壓力下的 VU 飽和與實際送壓不足
+- 目前已完成一輪低風險優化：accepted path 的 duplicate ticket id 快取與 dashboard summary eviction 節流；並補上 `loadtest` profile 關閉 SQL log、調整 HikariCP pool 供下一輪回測使用
 
 ## API Overview
 
@@ -386,6 +391,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
 
 
 

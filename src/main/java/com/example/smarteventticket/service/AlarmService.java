@@ -69,7 +69,7 @@ public class AlarmService {
         try {
             if (!rateLimitService.allow(request.source())) {
                 rateLimitService.recordRateLimitedRequest();
-                cacheService.evictDashboardSummary();
+                cacheService.evictDashboardSummaryThrottled();
                 EventIngestionResponse response = new EventIngestionResponse(
                         false,
                         null,
@@ -83,9 +83,10 @@ public class AlarmService {
             }
 
             if (deduplicationService.isDuplicate(request.source(), request.eventType(), request.businessKey())) {
-                Long ticketId = ticketService.findLatestByEvent(request.source(), request.eventType(), request.businessKey())
-                        .map(MaintenanceTicket::getId)
-                        .orElse(null);
+                Long ticketId = deduplicationService.getDuplicateTicketId(request.source(), request.eventType(), request.businessKey())
+                        .orElseGet(() -> ticketService.findLatestByEvent(request.source(), request.eventType(), request.businessKey())
+                                .map(MaintenanceTicket::getId)
+                                .orElse(null));
                 EventIngestionResponse response = new EventIngestionResponse(
                         true,
                         null,
@@ -95,7 +96,7 @@ public class AlarmService {
                         "Duplicated event ignored"
                 );
                 idempotencyService.markCompleted(idempotencyKey, requestHash, response);
-                cacheService.evictDashboardSummary();
+                cacheService.evictDashboardSummaryThrottled();
                 return new EventProcessingResult(HttpStatus.OK, response);
             }
 
@@ -110,6 +111,7 @@ public class AlarmService {
 
             AlarmEvent savedEvent = alarmEventRepository.save(event);
             MaintenanceTicket ticket = ticketService.createTicketFromEvent(savedEvent);
+            deduplicationService.rememberTicket(request.source(), request.eventType(), request.businessKey(), ticket.getId());
             EventIngestionResponse response = new EventIngestionResponse(
                     true,
                     savedEvent.getId(),
@@ -119,7 +121,6 @@ public class AlarmService {
                     "Event accepted and ticket created"
             );
             idempotencyService.markCompleted(idempotencyKey, requestHash, response);
-            cacheService.evictDashboardSummary();
             return new EventProcessingResult(HttpStatus.CREATED, response);
         } catch (RuntimeException ex) {
             idempotencyService.markFailed(idempotencyKey, requestHash, ex.getClass().getSimpleName());
@@ -234,4 +235,3 @@ public class AlarmService {
     public record EventProcessingResult(HttpStatus status, EventIngestionResponse response) {
     }
 }
-

@@ -7,6 +7,7 @@ import com.example.smarteventticket.entity.MaintenanceTicket;
 import com.example.smarteventticket.enums.AlarmSeverity;
 import com.example.smarteventticket.enums.EventType;
 import com.example.smarteventticket.repository.AlarmEventRepository;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -77,6 +78,7 @@ class AlarmServiceTest {
         assertEquals(HttpStatus.CREATED, result.status());
         assertEquals(1L, result.response().eventId());
         assertEquals(55L, result.response().ticketId());
+        verify(deduplicationService).rememberTicket("payment-system", EventType.TRANSACTION_ERROR, "TXN-001", 55L);
         verify(idempotencyService).markCompleted(any(), any(), any(EventIngestionResponse.class));
     }
 
@@ -119,6 +121,30 @@ class AlarmServiceTest {
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, result.status());
         assertTrue(result.response().rateLimited());
         verify(rateLimitService).recordRateLimitedRequest();
+        verify(cacheService).evictDashboardSummaryThrottled();
+    }
+
+    @Test
+    void createEventShouldUseCachedTicketIdForDuplicateResponse() {
+        CreateEventRequest request = new CreateEventRequest(
+                "payment-system",
+                EventType.TRANSACTION_ERROR,
+                "TXN-001",
+                AlarmSeverity.HIGH,
+                "Transaction failed",
+                "{}"
+        );
+        when(idempotencyService.startRequest(any(), any())).thenReturn(IdempotencyService.IdempotencyStartResult.startNew());
+        when(rateLimitService.allow("payment-system")).thenReturn(true);
+        when(deduplicationService.isDuplicate("payment-system", EventType.TRANSACTION_ERROR, "TXN-001")).thenReturn(true);
+        when(deduplicationService.getDuplicateTicketId("payment-system", EventType.TRANSACTION_ERROR, "TXN-001"))
+                .thenReturn(Optional.of(99L));
+
+        AlarmService.EventProcessingResult result = alarmService.createEvent(request, "idem-dup");
+
+        assertEquals(HttpStatus.OK, result.status());
+        assertTrue(result.response().duplicated());
+        assertEquals(99L, result.response().ticketId());
+        verify(ticketService, never()).findLatestByEvent(any(), any(), any());
     }
 }
-
