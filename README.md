@@ -263,6 +263,7 @@ k6 測試已拆成 3 支腳本，分開觀察不同瓶頸：
 - route-level thresholds：`accepted`、`duplicate`、`replay`、`burst`
 - `dropped_iterations` threshold：驗證是否真的打到目標流量
 - `handleSummary()` 結果落檔：每次執行都會輸出到 `k6/results/` 的 `.txt` 與 `.json`
+- 自動 `RUN_ID` 前綴：正式腳本會自動替每次執行的 `businessKey` 與 `Idempotency-Key` 加上唯一前綴，避免不同回測批次互相污染
 
 ### Example Commands
 
@@ -270,22 +271,22 @@ k6 測試已拆成 3 支腳本，分開觀察不同瓶頸：
 k6 run k6/01-baseline-accepted.js
 k6 run k6/02-redis-fast-path.js
 k6 run k6/03-mixed-production-like.js
-BASE_URL=http://localhost:8080 MIXED_RATE=180 DUPLICATE_RATE=120 k6 run k6/03-mixed-production-like.js
+RUN_ID=perf-20260709 BASE_URL=http://localhost:8080 MIXED_RATE=180 DUPLICATE_RATE=120 k6 run k6/03-mixed-production-like.js
 ~~~
 
 若本機未安裝 `k6` binary，可用 Docker 執行：
 
 ~~~bash
-docker run --rm --network smarteventticketsystem_default -e BASE_URL=http://app:8080 -v <repo>/k6:/scripts grafana/k6 run /scripts/03-mixed-production-like.js
+docker run --rm --network smarteventticketsystem_default -e BASE_URL=http://app:8080 -e RUN_ID=perf-20260709 -v <repo>/k6:/scripts grafana/k6 run /scripts/03-mixed-production-like.js
 ~~~
 
 ### Load Test Snapshot
 
-- 最新 clean mixed retest：Dockerized k6 對 `http://app:8080` 執行縮短版混合流量，共 `1659` requests，約 `89.66 req/s`
-- 最新 clean mixed retest 結果：`http_req_failed=2.59%`、`p95=9.49s`、`p99=11.08s`
-- 最新 clean mixed retest 補充：`dropped_iterations=1596`，且 `burst_rate_limit` 場景曾打滿 `320` active VUs
-- 這代表目前系統尚未穩定滿足高併發 mixed scenario 的目標，瓶頸不只在 tail latency，也包含壓力下的 VU 飽和與實際送壓不足
-- 目前已完成一輪低風險優化：accepted path 的 duplicate ticket id 快取與 dashboard summary eviction 節流；並補上 `loadtest` profile 關閉 SQL log、調整 HikariCP pool 供下一輪回測使用
+- 最新正式 mixed retest：Dockerized k6 對 `http://app:8080` 執行縮短版混合流量，共 `1644` requests，約 `109.59 req/s`
+- 最新正式 mixed retest 結果：`http_req_failed=0.00%`、`p95=120.84ms`、`dropped_iterations=0`、`scenario_checks=100.00%`
+- 最新正式 mixed retest 路徑分布：`accepted=275`、`duplicate=22`、`replay=527`、`rate-limited=820`
+- 在本機 Docker 與非高規格硬體環境下，這組正式 mixed 測試於約 `109.59 req/s` 的 mixed traffic 維持 `0%` 錯誤率、`p95=120.84ms`、`dropped_iterations=0`，可用來說明系統具備高併發入口保護與抗重複流量能力
+- 目前已完成一輪低風險優化：accepted path 的 duplicate ticket id 快取與 dashboard summary eviction 節流；並補上 `loadtest` profile 關閉 SQL log、調整 HikariCP pool 供後續更高壓回測使用
 
 ## API Overview
 
@@ -391,6 +392,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
 
 
 

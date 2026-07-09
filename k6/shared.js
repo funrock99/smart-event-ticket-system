@@ -3,6 +3,7 @@ import { check, sleep } from "k6";
 import { Counter, Rate } from "k6/metrics";
 
 export const BASE_URL = __ENV.BASE_URL || "http://localhost:8080";
+export const RUN_ID = __ENV.RUN_ID || `run-${Date.now()}`;
 http.setResponseCallback(http.expectedStatuses(200, 201, 409, 429));
 
 export const duplicateResponses = new Counter("duplicate_responses");
@@ -22,6 +23,10 @@ export function numberEnv(name, fallback) {
 
 export function durationEnv(name, fallback) {
     return __ENV[name] || fallback;
+}
+
+function runScoped(value) {
+    return `${RUN_ID}-${value}`;
 }
 
 export function buildThresholds(routeThresholds) {
@@ -91,8 +96,8 @@ export function recordResponse(response) {
 export function replayConsistency() {
     postEvent({
         source: "payment-system",
-        businessKey: `REPLAY-${__VU}`,
-        idempotencyKey: `idem-replay-${__VU}`,
+        businessKey: runScoped(`REPLAY-${__VU}`),
+        idempotencyKey: runScoped(`idem-replay-${__VU}`),
         route: "replay"
     });
     sleep(0.2);
@@ -101,8 +106,8 @@ export function replayConsistency() {
 export function duplicateSuppression() {
     postEvent({
         source: "duplicate-source",
-        businessKey: `DUPLICATE-${__ITER % 20}`,
-        idempotencyKey: `idem-duplicate-${__VU}-${__ITER}`,
+        businessKey: runScoped(`DUPLICATE-${__ITER % 20}`),
+        idempotencyKey: runScoped(`idem-duplicate-${__VU}-${__ITER}`),
         route: "duplicate"
     });
 }
@@ -110,8 +115,8 @@ export function duplicateSuppression() {
 export function burstRateLimit() {
     postEvent({
         source: "burst-source",
-        businessKey: `BURST-${__VU}-${__ITER}`,
-        idempotencyKey: `idem-burst-${__VU}-${__ITER}`,
+        businessKey: runScoped(`BURST-${__VU}-${__ITER}`),
+        idempotencyKey: runScoped(`idem-burst-${__VU}-${__ITER}`),
         route: "burst"
     });
 }
@@ -119,9 +124,9 @@ export function burstRateLimit() {
 export function acceptedOnly() {
     const acceptedSourceShards = numberEnv("ACCEPTED_SOURCE_SHARDS", 20);
     postEvent({
-        source: `checkout-system-${(__VU + __ITER) % acceptedSourceShards}`, 
-        businessKey: `ACCEPT-${__VU}-${__ITER}`,
-        idempotencyKey: `idem-accept-${__VU}-${__ITER}`,
+        source: `checkout-system-${(__VU + __ITER) % acceptedSourceShards}`,
+        businessKey: runScoped(`ACCEPT-${__VU}-${__ITER}`),
+        idempotencyKey: runScoped(`idem-accept-${__VU}-${__ITER}`),
         route: "accepted"
     });
 }
@@ -175,6 +180,7 @@ function rateValue(data, metricName) {
 function formatSummaryText(suiteName, data) {
     return [
         `suite: ${suiteName}`,
+        `run_id: ${RUN_ID}`,
         `requests: ${countValue(data, "http_reqs")}`,
         `throughput_per_sec: ${metricValue(data, "http_reqs", "rate")}`,
         `http_req_failed: ${rateValue(data, "http_req_failed")}`,
@@ -201,4 +207,3 @@ export function buildSummaryHandler(suiteName) {
         };
     };
 }
-
