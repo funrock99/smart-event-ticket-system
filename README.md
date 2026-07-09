@@ -32,6 +32,34 @@ graph TD
     B --> G[Dashboard Summary]
 ```
 
+### Event Ingestion Sequence
+
+~~~mermaid
+sequenceDiagram
+    participant Client
+    participant API as Spring Boot API
+    participant Redis
+    participant DB as PostgreSQL
+
+    Client->>API: POST /api/events + Idempotency-Key
+    API->>Redis: Rate limit check
+    API->>Redis: SET idempotency:{key} PROCESSING NX EX
+    API->>Redis: Dedup key lookup
+    alt New event
+        API->>DB: Insert alarm event
+        API->>DB: Insert maintenance ticket
+        API->>Redis: Cache COMPLETED response
+        API->>Redis: Evict dashboard summary cache
+        API-->>Client: 201 Created
+    else Duplicate business event
+        API->>Redis: Cache COMPLETED duplicate response
+        API-->>Client: 200 OK / duplicated=true
+    else Same idempotency key replay
+        API->>Redis: Return cached COMPLETED response
+        API-->>Client: 200 OK / replayed result
+    end
+~~~
+
 ## Tech Stack
 
 ### Frontend
@@ -213,13 +241,21 @@ mvn -Dtest=AlarmRecentRedisContainerIntegrationTest test
 mvn -Dtest=PostgresRedisIntegrationTest test
 ```
 
+
 ### k6 Load Test
 
-```bash
+~~~bash
 k6 run k6/event-ingestion-test.js
-```
+~~~
 
 這個腳本會同時驗證事件接收、Idempotency replay、Dedup 與 Rate Limiting 路徑。
+
+### Load Test Snapshot
+
+- 以 Dockerized k6 在 compose network 內對 http://app:8080 執行 20 個 VUs、30s 常量壓測
+- 本次實測共送出 600 次請求，http_req_failed=0.00%
+- 延遲結果：vg=15.44ms、p95=52.03ms、max=194.16ms
+- 壓測接受 200、201、409、429 為預期狀態碼，分別覆蓋 accepted、replayed / duplicated 與 rate limited 路徑
 
 ## API Overview
 
@@ -325,6 +361,10 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
+
+
 
 
 

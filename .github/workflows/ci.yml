@@ -19,5 +19,21 @@ jobs:
           java-version: '17'
           cache: maven
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
       - name: Run Maven tests
         run: mvn test
+
+      - name: Build Docker image
+        run: docker build -t smart-event-ticket-system:ci .
