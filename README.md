@@ -1,6 +1,20 @@
 # Smart Event Ticket System
 
-React + Spring Boot 的高併發事件接收與工單派發平台。這個專案模擬企業在短時間內接收大量系統告警、客服案件、交易異常或監控事件後，如何完成事件接收、Redis 去重、Idempotency 控制、自動建單、工單派發，以及 Dashboard 統計展示的完整流程。
+面向 Backend 職缺展示的專案：我用 `Spring Boot + Redis + PostgreSQL` 設計並實作一個高併發事件接收與工單派發平台，重點放在事件入口保護、資料一致性、重複請求控制、同步建單流程，以及可量化的壓測驗證；`React` Dashboard 主要作為操作與展示介面。
+
+## Recruiter Snapshot
+
+- 後端核心：以 `Spring Boot REST API` 承接高頻事件流，處理事件接收、自動建單、狀態流轉、SLA 計算與 Dashboard Summary
+- 流量保護設計：實作 Redis-based `Rate Limiting`、`Idempotency`、`Deduplication` 與 `Dashboard Cache`，降低 burst traffic、retry 與 duplicate event 對 DB 的衝擊
+- 一致性與落地：以 `PostgreSQL` 作為 source of truth，Redis 負責保護層與快取層，清楚分離 durability 與 performance concerns
+- 效能驗證：最新正式 mixed retest 達到 `1644 requests`、`109.59 req/s`、`0.00% http_req_failed`、`p95 120.84ms`、`dropped_iterations=0`
+- 工程完整度：補上 `Docker Compose`、整合測試、健康檢查、Swagger 與 `GitHub Actions`，讓系統具備可部署、可驗證與可展示性
+
+## Resume-Ready Summary
+
+- Built a high-concurrency backend system with `Spring Boot`, `Redis`, and `PostgreSQL` for event ingestion, ticket creation, SLA tracking, and workflow transitions
+- Designed Redis-based `rate limiting`, `idempotency`, and `deduplication` to protect synchronous write paths from burst traffic, retries, and duplicate business events
+- Validated backend performance with k6 mixed-load testing at `109.59 req/s`, `0.00%` failure rate, `p95 120.84ms`, and `0 dropped iterations`
 
 ## Preview
 
@@ -14,6 +28,7 @@ React + Spring Boot 的高併發事件接收與工單派發平台。這個專案
 
 ## Highlights
 
+- 建立完整事件接收平台，而不是只做工單 CRUD：從 event ingestion 到 ticket lifecycle 與 dashboard 都可直接展示
 - React Dashboard 提供事件上報、事件流、來源排行、工單派發與統計卡片展示
 - Spring Boot REST API 提供事件接收、批次事件、模擬事件、工單流程與 Dashboard Summary
 - Redis 用於事件去重、Idempotency Key、Rate Limiting 與 Dashboard 快取
@@ -392,6 +407,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
 
 
 
