@@ -1,3 +1,5 @@
+import { formatDateTime } from "../lib/utils";
+
 export default function TicketTable({ tickets }) {
     return (
         <section className="card wide-card">
@@ -18,6 +20,8 @@ export default function TicketTable({ tickets }) {
                         <th>事件類型</th>
                         <th>Business Key</th>
                         <th>優先級</th>
+                        <th>SLA 截止</th>
+                        <th>SLA</th>
                         <th>狀態</th>
                         <th>指派人</th>
                     </tr>
@@ -31,6 +35,8 @@ export default function TicketTable({ tickets }) {
                             <td>{ticket.eventType}</td>
                             <td>{ticket.businessKey}</td>
                             <td>{ticket.priority}</td>
+                            <td>{formatDateTime(ticket.slaDueAt)}</td>
+                            <td>{ticket.slaBreached ? "BREACHED" : "ON TRACK"}</td>
                             <td><span className={`badge ${ticket.status}`}>{ticket.status}</span></td>
                             <td>{ticket.assignee || "-"}</td>
                         </tr>

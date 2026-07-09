@@ -3,6 +3,7 @@ export const summaryDefinitions = [
     ["validEvents", "有效事件"],
     ["duplicatedEvents", "重複事件"],
     ["rateLimitedEvents", "限流事件"],
+    ["idempotentReplayedEvents", "重播請求"],
     ["openTickets", "OPEN 工單"],
     ["processingTickets", "PROCESSING 工單"],
     ["resolvedTickets", "RESOLVED 工單"],

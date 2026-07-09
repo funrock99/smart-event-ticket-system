@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: docker-postgres
+  datasource:
+    url: jdbc:postgresql://${SPRING_DATASOURCE_HOST:postgres}:${SPRING_DATASOURCE_PORT:5432}/${SPRING_DATASOURCE_DB:smart_event_ticket}
+    driver-class-name: org.postgresql.Driver
+    username: ${SPRING_DATASOURCE_USERNAME:smart_event}
+    password: ${SPRING_DATASOURCE_PASSWORD:smart_event}
+  jpa:
+    hibernate:
+      ddl-auto: update
+  sql:
+    init:
+      mode: never

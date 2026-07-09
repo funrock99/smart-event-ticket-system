@@ -6,6 +6,5 @@ target/
 *.txt
 frontend/node_modules/
 frontend/dist/
-Smart_Maintenance_Ticket_System_Spec.md
 GEMINI.md
 final_runs/

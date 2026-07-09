@@ -99,12 +99,12 @@ export default function App() {
         try {
             const [nextSummary, nextTickets, nextEvents] = await Promise.all([
                 apiFetch("/api/dashboard/summary"),
-                apiFetch("/api/tickets"),
-                apiFetch("/api/events")
+                apiFetch("/api/tickets?page=0&size=20&sort=createdAt,desc"),
+                apiFetch("/api/events?page=0&size=20&sort=occurredAt,desc")
             ]);
 
-            const safeTickets = Array.isArray(nextTickets) ? nextTickets : [nextTickets];
-            const safeEvents = Array.isArray(nextEvents) ? nextEvents : [nextEvents];
+            const safeTickets = Array.isArray(nextTickets?.content) ? nextTickets.content : [];
+            const safeEvents = Array.isArray(nextEvents?.content) ? nextEvents.content : [];
 
             setSummary(nextSummary);
             setTickets(safeTickets);

@@ -4,12 +4,51 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
+      SPRING_PROFILES_ACTIVE: docker-postgres
+      SPRING_DATASOURCE_HOST: postgres
+      SPRING_DATASOURCE_PORT: 5432
+      SPRING_DATASOURCE_DB: smart_event_ticket
+      SPRING_DATASOURCE_USERNAME: smart_event
+      SPRING_DATASOURCE_PASSWORD: smart_event
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:8080/actuator/health > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: smart_event_ticket
+      POSTGRES_USER: smart_event
+      POSTGRES_PASSWORD: smart_event
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart_event -d smart_event_ticket"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7.4-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

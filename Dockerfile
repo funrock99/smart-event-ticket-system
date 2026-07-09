@@ -13,8 +13,11 @@ COPY src src
 COPY --from=frontend-build /frontend/dist/ src/main/resources/static/
 RUN mvn -q clean package -DskipTests
 
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17-jre-jammy
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=backend-build /workspace/target/smart-maintenance-ticket-system-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=backend-build /workspace/target/smart-event-ticket-system-0.0.1-SNAPSHOT.jar app.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
