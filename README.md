@@ -29,7 +29,7 @@
 ## Highlights
 
 - 建立完整事件接收平台，而不是只做工單 CRUD：從 event ingestion 到 ticket lifecycle 與 dashboard 都可直接展示
-- React Dashboard 提供事件上報、事件流、來源排行、工單派發與統計卡片展示
+- React Dashboard 提供事件上報、事件流、來源排行、工單派發與統計卡片展示，並完整支援伺服器端與前端分頁 (Pagination)
 - Spring Boot REST API 提供事件接收、批次事件、模擬事件、工單流程與 Dashboard Summary
 - Redis 用於事件去重、Idempotency Key、Rate Limiting 與 Dashboard 快取
 - 支援 Docker Compose，本機可快速完成 App + PostgreSQL + Redis 啟動
@@ -330,6 +330,7 @@ PUT /api/tickets/{id}/status
 
 ```http
 GET /api/dashboard/summary
+GET /api/dashboard/source-ranking
 ```
 
 ## Example Request
@@ -394,7 +395,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - Per-source Rate Limiting to protect API and database from traffic bursts.
 - Idempotent replay metrics surfaced in the dashboard summary.
 - PostgreSQL as the source of truth in Docker deployments.
-- Repository-level pagination with stable DTO responses.
+- Repository-level pagination with stable DTO responses and synchronized React UI pagination.
+- Global historical source ranking API using Spring Data JPA aggregations to avoid DB dialect conflicts.
 - Ticket SLA deadlines and status history for enterprise-style ticket lifecycle tracking.
 - Spring Boot Actuator health endpoint, Docker healthchecks, and GitHub Actions CI.
 - k6 load testing script to validate concurrent ingestion behavior.
