@@ -248,14 +248,39 @@ mvn -Dtest=PostgresRedisIntegrationTest test
 k6 run k6/event-ingestion-test.js
 ~~~
 
-這個腳本會同時驗證事件接收、Idempotency replay、Dedup 與 Rate Limiting 路徑。
+這個腳本已升級成多場景高併發測試組合，而不是單一 smoke test。預設會同時覆蓋：
+
+- `replay_consistency`：同一 `Idempotency-Key` 的重送一致性
+- `duplicate_suppression`：高頻重複業務事件的 dedup 行為
+- `burst_rate_limit`：突發流量下的 rate limiting 保護
+- `mixed_high_throughput`：accepted / replay / duplicate / rate-limited 混合流量
+
+### High Concurrency Targets
+
+- 預設壓測門檻：`http_req_failed < 2%`
+- 延遲目標：`p95 < 800ms`、`p99 < 1500ms`
+- 驗證指標：accepted、duplicate、replay、rate-limited 路徑都會被實際觸發
+
+### Example Commands
+
+~~~bash
+k6 run k6/event-ingestion-test.js
+BASE_URL=http://localhost:8080 MIXED_RATE=180 DUPLICATE_RATE=120 k6 run k6/event-ingestion-test.js
+~~~
+
+若本機未安裝 `k6` binary，可用 Docker 執行：
+
+~~~bash
+docker run --rm --network smarteventticketsystem_default -e BASE_URL=http://app:8080 -v <repo>/k6:/scripts grafana/k6 run /scripts/event-ingestion-test.js
+~~~
 
 ### Load Test Snapshot
 
-- 以 Dockerized k6 在 compose network 內對 http://app:8080 執行 20 個 VUs、30s 常量壓測
-- 本次實測共送出 600 次請求，http_req_failed=0.00%
-- 延遲結果：vg=15.44ms、p95=52.03ms、max=194.16ms
-- 壓測接受 200、201、409、429 為預期狀態碼，分別覆蓋 accepted、replayed / duplicated 與 rate limited 路徑
+- 基礎驗證：Dockerized k6 對 `http://app:8080` 執行 `20 VUs / 30s`，共 `600` requests，`http_req_failed=0.00%`
+- 基礎驗證延遲：`avg=15.44ms`、`p95=52.03ms`、`max=194.16ms`
+- 多場景縮短驗證：`replay + duplicate + burst + mixed` 同時執行，合計約 `3650` requests、約 `202.75 req/s`
+- 多場景縮短驗證結果：`http_req_failed=0.49%`，但延遲門檻未達標，`p95=1.27s`、`p99=2.14s`
+- 這代表系統在輕中度並發下穩定，但在約 `200 req/s` 的混合壓力下已接近瓶頸；這組結果可用來說明目前能力邊界與後續優化方向
 
 ## API Overview
 
@@ -361,6 +386,8 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
+
+
 
 
 
