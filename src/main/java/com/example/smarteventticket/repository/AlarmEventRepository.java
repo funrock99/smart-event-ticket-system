@@ -27,5 +27,13 @@ public interface AlarmEventRepository extends JpaRepository<AlarmEvent, Long> {
     );
 
     long countBySeverityIn(Collection<AlarmSeverity> severities);
+
+    @Query("SELECT e.source, COUNT(e) FROM AlarmEvent e GROUP BY e.source ORDER BY COUNT(e) DESC")
+    java.util.List<Object[]> countBySource();
+
+    @Query("SELECT DISTINCT e.severity FROM AlarmEvent e WHERE e.source = :source")
+    java.util.List<AlarmSeverity> findDistinctSeveritiesBySource(@Param("source") String source);
+
+    AlarmEvent findFirstBySourceOrderByOccurredAtDesc(String source);
 }
 

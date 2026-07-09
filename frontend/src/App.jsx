@@ -28,6 +28,7 @@ export default function App() {
     const [summary, setSummary] = useState(createInitialSummary);
     const [tickets, setTickets] = useState([]);
     const [events, setEvents] = useState([]);
+    const [sourceRows, setSourceRows] = useState([]);
     const [eventPage, setEventPage] = useState(0);
     const [ticketPage, setTicketPage] = useState(0);
     const [eventPageInfo, setEventPageInfo] = useState({ number: 0, totalPages: 0, totalElements: 0 });
@@ -63,33 +64,6 @@ export default function App() {
         return () => window.clearTimeout(timer);
     }, [toast]);
 
-    const sourceRows = useMemo(() => {
-        const sourceMap = new Map();
-        events.forEach((event) => {
-            const current = sourceMap.get(event.source) || {
-                source: event.source,
-                count: 0,
-                highestSeverity: event.severity,
-                latestEventType: event.eventType,
-                latestOccurredAt: event.occurredAt
-            };
-            current.count += 1;
-            current.latestEventType = event.eventType;
-            current.latestOccurredAt = event.occurredAt;
-            current.highestSeverity = compareSeverity(current.highestSeverity, event.severity) >= 0
-                ? current.highestSeverity
-                : event.severity;
-            sourceMap.set(event.source, current);
-        });
-
-        return [...sourceMap.values()].sort((left, right) => {
-            if (right.count !== left.count) {
-                return right.count - left.count;
-            }
-            return left.source.localeCompare(right.source);
-        });
-    }, [events]);
-
     function showToast(message, type = "") {
         setToast({ message, type });
     }
@@ -101,10 +75,11 @@ export default function App() {
         }
 
         try {
-            const [nextSummary, nextTickets, nextEvents] = await Promise.all([
+            const [nextSummary, nextTickets, nextEvents, nextSourceRankings] = await Promise.all([
                 apiFetch("/api/dashboard/summary"),
                 apiFetch(`/api/tickets?page=${targetTicketPage}&size=20&sort=createdAt,desc`),
-                apiFetch(`/api/events?page=${targetEventPage}&size=20&sort=occurredAt,desc`)
+                apiFetch(`/api/events?page=${targetEventPage}&size=20&sort=occurredAt,desc`),
+                apiFetch("/api/dashboard/source-ranking")
             ]);
 
             const safeTickets = Array.isArray(nextTickets?.content) ? nextTickets.content : [];
@@ -113,6 +88,7 @@ export default function App() {
             setSummary(nextSummary);
             setTickets(safeTickets);
             setEvents(safeEvents);
+            setSourceRows(Array.isArray(nextSourceRankings) ? nextSourceRankings : []);
             setEventPageInfo(nextEvents ? { number: nextEvents.page, totalPages: nextEvents.totalPages, totalElements: nextEvents.totalElements } : { number: 0, totalPages: 0, totalElements: 0 });
             setTicketPageInfo(nextTickets ? { number: nextTickets.page, totalPages: nextTickets.totalPages, totalElements: nextTickets.totalElements } : { number: 0, totalPages: 0, totalElements: 0 });
             setTicketPage(targetTicketPage);
