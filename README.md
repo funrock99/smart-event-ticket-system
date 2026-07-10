@@ -16,6 +16,12 @@
 - Designed Redis-based `rate limiting`, `idempotency`, and `deduplication` to protect synchronous write paths from burst traffic, retries, and duplicate business events
 - Validated backend performance with k6 mixed-load testing at `109.59 req/s`, `0.00%` failure rate, `p95 120.84ms`, and `0 dropped iterations`
 
+## CI Status
+
+- GitHub Actions `CI` workflow is currently passing on `main`
+- CI runs automatically on pushes to `main` / `master` and on every pull request
+- The workflow verifies frontend build, `mvn test`, and Docker image build
+
 ## Preview
 
 ### Dashboard Overview
@@ -409,23 +415,3 @@ This project demonstrates a high-frequency event ingestion and automatic ticket 
 - 相同 `Idempotency-Key` 搭配相同 request payload 會回傳第一次結果，不重複建立 Event / Ticket
 - 單一來源在短時間高頻請求時會觸發 Rate Limiting
 - Redis 不可用時，核心事件寫入流程仍會嘗試回退，但去重與保護能力會下降
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
