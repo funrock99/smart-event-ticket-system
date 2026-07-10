@@ -18,9 +18,9 @@
 
 ## CI Status
 
-- GitHub Actions `CI` workflow is currently passing on `main`
-- CI runs automatically on pushes to `main` / `master` and on every pull request
-- The workflow verifies frontend build, `mvn test`, and Docker image build
+- The project includes GitHub Actions `CI` to automatically verify frontend build, `mvn test`, and Docker image build on every push to `main` / `master` and on each pull request
+- This helps keep the main branch in a consistently buildable, testable, and packageable state
+- The latest `CI` run on `main` completed successfully, demonstrating baseline engineering quality through automated validation
 
 ## Preview
 
